@@ -42,3 +42,9 @@ next-env.d.ts
 
 # drizzle
 drizzle/meta/_journal.json.bak
+
+# Claude Code / agentes
+AGENTS.md
+CLAUDE.md
+.claude/
+.superpowers/
