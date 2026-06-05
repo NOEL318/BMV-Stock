@@ -40,8 +40,10 @@ export async function getSuggestedTickersData({
         marketData.getHistorical(ticker, "1M"),
       ]);
       const quote = quoteResult.status === "fulfilled" ? quoteResult.value : null;
+      // Tolerar contratos rotos del provider (e.g., undefined en mocks o
+      // proveedores con bug): cualquier valor no-array degrada a [].
       const recentCloses =
-        historicalResult.status === "fulfilled"
+        historicalResult.status === "fulfilled" && Array.isArray(historicalResult.value)
           ? historicalResult.value.map((h) => h.close)
           : [];
       return {

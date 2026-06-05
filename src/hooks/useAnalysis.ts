@@ -41,7 +41,7 @@ export function useAnalysis(ticker: string, range: TimeRange = "3M") {
       }
       return res.json() as Promise<AnalysisResponse>;
     },
-    enabled: ticker.length > 0,
+    enabled: ticker.trim().length > 0,
     // Refrescar cada 30s mientras la pestaña esté activa, para que
     // los precios y la gráfica se mantengan casi en vivo.
     refetchInterval: 30_000,

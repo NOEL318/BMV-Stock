@@ -21,10 +21,7 @@ import type { ConceptSidebarProps } from "./ConceptSidebar.types";
  * No se renderiza si la ruta actual no tiene conceptos asociados
  * (ver `lib/concepts/route-map.ts`).
  */
-export function ConceptSidebar({
-  defaultCollapsed = false,
-  className,
-}: ConceptSidebarProps) {
+export function ConceptSidebar({ defaultCollapsed = false, className }: ConceptSidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
   const slugs = getConceptsForRoute(pathname);
@@ -34,7 +31,9 @@ export function ConceptSidebar({
   return (
     <aside
       className={cn(
-        "border-border bg-card flex h-full flex-col border-l transition-[width] duration-200",
+        // Glosario secundario: oculto en pantallas pequeñas (< lg), visible en
+        // escritorio donde hay espacio. Evita el overflow horizontal en móvil.
+        "border-border bg-card hidden h-full flex-col border-l transition-[width] duration-200 lg:flex",
         collapsed ? "w-10" : "w-72",
         className,
       )}

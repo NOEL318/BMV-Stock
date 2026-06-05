@@ -19,5 +19,9 @@ export function useUserPreferences() {
       if (!res.ok) throw new Error("failed to fetch preferences");
       return res.json() as Promise<PreferencesResponse>;
     },
+    // Las preferencias casi nunca cambian y solo lo hacen por acción explícita
+    // del usuario (que ya invalida la query). Evitamos refetch agresivo.
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 }

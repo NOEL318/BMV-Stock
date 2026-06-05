@@ -52,11 +52,15 @@ export class Percentage {
 
   /**
    * Formato `+X.XX%` o `-X.XX%`.
+   *
+   * Se redondea a dos decimales ANTES de decidir el signo para que las
+   * variaciones diminutas que redondean a cero (p.ej. -0.001%) se muestren
+   * como `0.00%` y no como `-0.00%`.
    */
   toString(): string {
-    const pct = this.asPercent;
-    if (pct === 0) return "0.00%";
-    const sign = pct > 0 ? "+" : "";
-    return `${sign}${pct.toFixed(2)}%`;
+    const rounded = Number(this.asPercent.toFixed(2));
+    if (rounded === 0) return "0.00%";
+    const sign = rounded > 0 ? "+" : "";
+    return `${sign}${rounded.toFixed(2)}%`;
   }
 }

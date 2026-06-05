@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 import type { AllocationBucket } from "@/application/core-allocation/recommendAllocation";
 import { ConceptCard } from "@/components/education/ConceptCard";
@@ -42,7 +43,11 @@ export function CoreAllocationClient() {
       if (res.ok) {
         const body = (await res.json()) as { allocation: AllocationBucket[] };
         setAllocation(body.allocation);
+      } else {
+        toast.error("No se pudo calcular la recomendación. Intenta de nuevo.");
       }
+    } catch {
+      toast.error("No se pudo calcular la recomendación. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }

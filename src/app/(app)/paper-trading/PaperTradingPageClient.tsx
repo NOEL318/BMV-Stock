@@ -10,6 +10,7 @@ import { PnLBadge } from "@/components/finance/PnLBadge";
 import { TickerBadge } from "@/components/finance/TickerBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { invalidateAfterPaperReset } from "@/hooks/invalidate";
 import { usePaperPortfolio } from "@/hooks/usePaperPortfolio";
 
 /**
@@ -17,7 +18,7 @@ import { usePaperPortfolio } from "@/hooks/usePaperPortfolio";
  * Permite resetear el portfolio con confirmación.
  */
 export function PaperTradingPageClient() {
-  const { data, isLoading } = usePaperPortfolio();
+  const { data, isLoading, error, refetch } = usePaperPortfolio();
   const queryClient = useQueryClient();
 
   async function handleReset(): Promise<void> {
@@ -29,12 +30,25 @@ export function PaperTradingPageClient() {
       toast.error("Error al resetear");
       return;
     }
-    await queryClient.invalidateQueries({ queryKey: ["paper-portfolio"] });
+    await invalidateAfterPaperReset(queryClient);
     toast.success("Portafolio reseteado");
   }
 
   if (isLoading) {
     return <p className="text-muted-foreground text-sm">Cargando...</p>;
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="space-y-3 py-8 text-center">
+          <p className="text-destructive text-sm">No se pudo cargar el paper portfolio.</p>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            Reintentar
+          </Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   if (!data) {

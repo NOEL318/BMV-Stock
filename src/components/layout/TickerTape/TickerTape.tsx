@@ -36,10 +36,7 @@ export function TickerTape() {
           <TickerTapeItem key={`a-${entry.href}`} entry={entry} />
         ))}
       </div>
-      <div
-        className="ticker-tape-track flex shrink-0 items-center gap-6 py-2 pl-6"
-        aria-hidden
-      >
+      <div className="ticker-tape-track flex shrink-0 items-center gap-6 py-2 pl-6" aria-hidden>
         {entries.map((entry) => (
           <TickerTapeItem key={`b-${entry.href}`} entry={entry} />
         ))}
@@ -59,6 +56,11 @@ export function TickerTape() {
         }
         :global(.ticker-tape:hover) .ticker-tape-track {
           animation-play-state: paused;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .ticker-tape-track {
+            animation: none;
+          }
         }
       `}</style>
     </div>
@@ -89,9 +91,7 @@ function TickerTapeItem({ entry }: { entry: SuggestedTickerData }) {
   const arrow = changePct === null ? "•" : changePct >= 0 ? "▲" : "▼";
 
   const formattedPct =
-    changePct === null
-      ? null
-      : `${changePct >= 0 ? "+" : ""}${(changePct * 100).toFixed(2)}%`;
+    changePct === null ? null : `${changePct >= 0 ? "+" : ""}${(changePct * 100).toFixed(2)}%`;
 
   const formattedPrice = quote
     ? new Intl.NumberFormat("es-MX", {
@@ -103,7 +103,7 @@ function TickerTapeItem({ entry }: { entry: SuggestedTickerData }) {
   return (
     <Link
       href={href}
-      className="hover:bg-muted/50 inline-flex items-center gap-2 whitespace-nowrap rounded px-1 py-0.5 text-xs font-mono tabular-nums transition-colors"
+      className="hover:bg-muted/50 inline-flex items-center gap-2 rounded px-1 py-0.5 font-mono text-xs whitespace-nowrap tabular-nums transition-colors"
       aria-label={`${ticker} ${exchange}: ${formattedPrice} MXN${formattedPct ? `, ${formattedPct}` : ""}`}
     >
       <span className="text-foreground font-semibold">{ticker}</span>

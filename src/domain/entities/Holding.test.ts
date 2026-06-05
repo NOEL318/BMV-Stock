@@ -63,6 +63,37 @@ describe("applyTradeToHolding - BUY", () => {
     expect(updated.quantity).toBe(150);
     expect(updated.avgCostMxn).toBeCloseTo(73.3667, 4);
   });
+
+  it("reabre una posición cerrada al recomprar: limpia closedAt y reinicia openedAt", () => {
+    // Posición previamente vendida por completo: quantity 0 y closedAt seteado.
+    const closed: Holding = {
+      id: "h1",
+      userId: "u1",
+      ticker: "WALMEX",
+      exchange: "BMV",
+      quantity: 0,
+      avgCostMxn: 70,
+      openedAt: new Date("2026-01-01"),
+      closedAt: new Date("2026-02-01"),
+      notes: null,
+      createdAt: new Date("2026-01-01"),
+      updatedAt: new Date("2026-02-01"),
+    };
+    const rebuy: Trade = {
+      ...baseTrade,
+      action: "BUY",
+      quantity: 100,
+      priceMxn: 80,
+      commissionMxn: 0,
+      executedAt: new Date("2026-03-10"),
+    };
+    const reopened = applyTradeToHolding(closed, rebuy);
+    expect(reopened.quantity).toBe(100);
+    // avgCost parte de cero: (0 + 100*80) / 100 = 80.
+    expect(reopened.avgCostMxn).toBeCloseTo(80, 5);
+    expect(reopened.closedAt).toBeNull();
+    expect(reopened.openedAt).toEqual(new Date("2026-03-10"));
+  });
 });
 
 describe("applyTradeToHolding - SELL", () => {

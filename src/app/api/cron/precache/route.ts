@@ -1,7 +1,20 @@
+import { timingSafeEqual } from "node:crypto";
+
 import { NextResponse } from "next/server";
 
 import { getDeps } from "@/application/di";
 import { Ticker } from "@/domain/value-objects/Ticker";
+
+/**
+ * Compara dos strings en tiempo constante para evitar timing attacks sobre el
+ * secreto del cron. Devuelve false si difieren en longitud.
+ */
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return timingSafeEqual(bufA, bufB);
+}
 
 /**
  * GET /api/cron/precache
@@ -19,13 +32,19 @@ import { Ticker } from "@/domain/value-objects/Ticker";
  *
  * Auth: requiere header `Authorization: Bearer CRON_SECRET`. Vercel lo
  * configura automáticamente en cron requests. Si `CRON_SECRET` no está
- * definido en el entorno, el endpoint responde sin verificar (desarrollo local).
+ * definido en el entorno, el endpoint responde sin verificar (solo desarrollo
+ * local). En produccion se registra una advertencia para que no pase
+ * inadvertido un cron sin proteger.
  */
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization");
-  const expected = `Bearer ${process.env.CRON_SECRET ?? ""}`;
-  if (process.env.CRON_SECRET && auth !== expected) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const secret = process.env.CRON_SECRET;
+  if (secret) {
+    const auth = req.headers.get("authorization") ?? "";
+    if (!safeEqual(auth, `Bearer ${secret}`)) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+  } else if (process.env.NODE_ENV === "production") {
+    console.warn("/api/cron/precache: CRON_SECRET no definido; el endpoint queda sin proteger.");
   }
 
   const { holdings, watchlist, marketData } = getDeps();

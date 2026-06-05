@@ -2,10 +2,17 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 
 /**
@@ -30,8 +37,13 @@ export function DisclaimerModal() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ disclaimerAcceptedAt: new Date().toISOString() }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        toast.error("No se pudo guardar tu aceptación. Intenta de nuevo.");
+        return;
+      }
       await queryClient.invalidateQueries({ queryKey: ["user-preferences"] });
+    } catch {
+      toast.error("No se pudo guardar tu aceptación. Intenta de nuevo.");
     } finally {
       setSubmitting(false);
     }
@@ -42,6 +54,9 @@ export function DisclaimerModal() {
       <DialogContent className="max-w-2xl" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Aviso importante antes de continuar</DialogTitle>
+          <DialogDescription>
+            Lee y acepta los términos de uso para continuar usando la aplicación.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-sm">
           <p>

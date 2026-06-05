@@ -13,6 +13,10 @@ const envSchema = z.object({
   NEXT_PUBLIC_CLERK_SIGN_UP_URL: z.string().default("/sign-up"),
   NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL: z.string().default("/dashboard"),
   NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL: z.string().default("/dashboard"),
+  // Allowlist single-user (opcional). Lista de emails separados por coma con
+  // permiso de acceso. Si se omite, NO se filtra (cualquier usuario de Clerk
+  // entra) para no romper desarrollo local; en produccion conviene definirla.
+  ALLOWED_USER_EMAILS: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse({
@@ -26,6 +30,7 @@ const parsed = envSchema.safeParse({
     process.env.NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL,
   NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL:
     process.env.NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL,
+  ALLOWED_USER_EMAILS: process.env.ALLOWED_USER_EMAILS,
 });
 
 if (!parsed.success) {

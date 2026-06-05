@@ -1,6 +1,10 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
+import { LuStar } from "react-icons/lu";
+import { toast } from "sonner";
 
 import { MacdChart } from "@/components/charts/MacdChart";
 import { PriceChart } from "@/components/charts/PriceChart";
@@ -21,7 +25,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { TimeRange } from "@/domain/entities/HistoricalPrice";
 import { useAnalysis } from "@/hooks/useAnalysis";
+import { invalidateAfterWatchlistChange } from "@/hooks/invalidate";
 import { useSuggestedTickers } from "@/hooks/useSuggestedTickers";
+import { useWatchlist } from "@/hooks/useWatchlist";
 
 /**
  * Timeframes intradía y diarios+ ofrecidos al usuario.
@@ -48,7 +54,6 @@ const AVAILABLE_INDICATORS: { value: PriceChartIndicator; label: string }[] = [
   { value: "ema26", label: "EMA 26" },
 ];
 
-
 interface Props {
   /** Símbolo de la emisora a analizar. */
   ticker: string;
@@ -68,6 +73,9 @@ export function AnalysisPageClient({ ticker }: Props) {
   ]);
   const { data, isLoading, error } = useAnalysis(ticker, range);
   const { data: suggestionsData, isLoading: suggestionsLoading } = useSuggestedTickers();
+  const { data: watchlistData } = useWatchlist();
+  const queryClient = useQueryClient();
+  const [watchlistPending, setWatchlistPending] = useState(false);
 
   function toggleIndicator(ind: PriceChartIndicator): void {
     setActiveIndicators((prev) =>
@@ -92,6 +100,42 @@ export function AnalysisPageClient({ ticker }: Props) {
   }
 
   const { quote, historical, indicators } = data;
+
+  const watchlistEntry = watchlistData?.entries.find(
+    (e) => e.item.ticker === quote.ticker && e.item.exchange === quote.exchange,
+  );
+  const inWatchlist = !!watchlistEntry;
+
+  async function toggleWatchlist(): Promise<void> {
+    if (watchlistPending) return;
+    setWatchlistPending(true);
+    try {
+      if (inWatchlist && watchlistEntry) {
+        const res = await fetch(`/api/watchlist/${watchlistEntry.item.id}`, { method: "DELETE" });
+        if (!res.ok) {
+          toast.error("Error al quitar del watchlist");
+          return;
+        }
+        toast.success(`${quote.ticker} fuera del watchlist`);
+      } else {
+        const tickerString = quote.exchange === "BMV" ? `${quote.ticker}.MX` : quote.ticker;
+        const res = await fetch("/api/watchlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticker: tickerString }),
+        });
+        if (!res.ok) {
+          toast.error("Error al agregar al watchlist");
+          return;
+        }
+        toast.success(`${quote.ticker} agregado al watchlist`);
+      }
+      await invalidateAfterWatchlistChange(queryClient);
+    } finally {
+      setWatchlistPending(false);
+    }
+  }
+
   const lastClose = historical[historical.length - 1]?.close ?? quote.priceMxn;
   const firstClose = historical[0]?.close ?? quote.priceMxn;
   const periodReturn = firstClose > 0 ? (lastClose - firstClose) / firstClose : 0;
@@ -99,7 +143,7 @@ export function AnalysisPageClient({ ticker }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex items-center gap-3">
           <TickerBadge ticker={quote.ticker} exchange={quote.exchange} size="lg" />
           <ExchangeBadge exchange={quote.exchange} />
@@ -110,10 +154,38 @@ export function AnalysisPageClient({ ticker }: Props) {
         </div>
       </div>
 
+      {/* Acciones sobre la emisora: seguir en watchlist y operar */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-muted-foreground text-[10px] uppercase tracking-wider">
-          Intradía
-        </span>
+        <Button
+          variant={inWatchlist ? "default" : "outline"}
+          size="sm"
+          onClick={() => void toggleWatchlist()}
+          disabled={watchlistPending}
+          aria-pressed={inWatchlist}
+        >
+          <LuStar className={inWatchlist ? "fill-current" : ""} aria-hidden />
+          {inWatchlist ? "En watchlist" : "Agregar a watchlist"}
+        </Button>
+        <Button
+          render={<Link href="/portfolio/trade" />}
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+        >
+          Registrar trade
+        </Button>
+        <Button
+          render={<Link href="/paper-trading/trade" />}
+          variant="ghost"
+          size="sm"
+          nativeButton={false}
+        >
+          Paper trade
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-muted-foreground text-[10px] tracking-wider uppercase">Intradía</span>
         {INTRADAY_TIMEFRAMES.map((tf) => (
           <Button
             key={tf}
@@ -125,9 +197,7 @@ export function AnalysisPageClient({ ticker }: Props) {
           </Button>
         ))}
         <span className="bg-border mx-1 h-4 w-px" aria-hidden />
-        <span className="text-muted-foreground text-[10px] uppercase tracking-wider">
-          Diario
-        </span>
+        <span className="text-muted-foreground text-[10px] tracking-wider uppercase">Diario</span>
         {DAILY_TIMEFRAMES.map((tf) => (
           <Button
             key={tf}
@@ -145,7 +215,7 @@ export function AnalysisPageClient({ ticker }: Props) {
           {/* Toolbar: tipo de gráfica + indicadores + volumen */}
           <div className="border-border flex flex-wrap items-center gap-x-4 gap-y-2 border-b pb-3">
             <div className="flex items-center gap-1.5">
-              <span className="text-muted-foreground text-[10px] uppercase tracking-wider">
+              <span className="text-muted-foreground text-[10px] tracking-wider uppercase">
                 Tipo
               </span>
               {CHART_TYPES.map((t) => (
@@ -163,7 +233,7 @@ export function AnalysisPageClient({ ticker }: Props) {
             <span className="bg-border h-4 w-px" aria-hidden />
 
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-muted-foreground text-[10px] uppercase tracking-wider">
+              <span className="text-muted-foreground text-[10px] tracking-wider uppercase">
                 Indicadores
               </span>
               {AVAILABLE_INDICATORS.map((ind) => (
@@ -275,9 +345,7 @@ export function AnalysisPageClient({ ticker }: Props) {
       <div className="space-y-3">
         <div className="flex items-baseline justify-between">
           <h2 className="text-base font-semibold tracking-tight">Sugerencias para explorar</h2>
-          <span className="text-muted-foreground text-xs">
-            Emisoras populares de BMV y SIC
-          </span>
+          <span className="text-muted-foreground text-xs">Emisoras populares de BMV y SIC</span>
         </div>
         {suggestionsLoading ? (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">

@@ -57,7 +57,9 @@ export function createHoldingFromBuy(
  *
  * Reglas:
  * - BUY: avgCost se recalcula como promedio ponderado considerando la comisión.
- *   La cantidad aumenta.
+ *   La cantidad aumenta. Si la posición estaba cerrada (quantity 0, closedAt
+ *   seteado), el BUY la reabre: se limpia closedAt y openedAt pasa a la fecha
+ *   de esta recompra.
  * - SELL: cantidad disminuye. avgCost no cambia. Si quantity llega a 0, se marca closedAt.
  *   Si trade.quantity excede holding.quantity, lanza InsufficientQuantityError.
  * - DIVIDEND: el holding no cambia.
@@ -71,10 +73,17 @@ export function applyTradeToHolding(holding: Holding, trade: Trade): Holding {
       const tradeTotalCost = trade.quantity * trade.priceMxn + trade.commissionMxn;
       const newQuantity = holding.quantity + trade.quantity;
       const newAvgCost = (oldTotalCost + tradeTotalCost) / newQuantity;
+      // Reapertura: si la posición estaba en cero (cerrada), este BUY la revive.
+      // Hay que limpiar closedAt y reiniciar openedAt; de lo contrario el holding
+      // recomprado quedaría con closedAt viejo y se ocultaría del portafolio
+      // (listByUser filtra por closedAt null por default).
+      const reopening = holding.quantity === 0;
       return {
         ...holding,
         quantity: newQuantity,
         avgCostMxn: newAvgCost,
+        openedAt: reopening ? trade.executedAt : holding.openedAt,
+        closedAt: reopening ? null : holding.closedAt,
         updatedAt: trade.executedAt,
       };
     }

@@ -5,7 +5,7 @@ import type { WatchlistRepository } from "@/domain/ports/WatchlistRepository";
 import { removeFromWatchlist } from "./removeFromWatchlist";
 
 describe("removeFromWatchlist", () => {
-  it("delega la eliminación al repositorio con el id correcto", async () => {
+  it("delega la eliminación al repositorio con el id y userId correctos", async () => {
     const deleteFn = vi.fn().mockResolvedValue(undefined);
     const repo: WatchlistRepository = {
       listByUser: vi.fn(),
@@ -14,8 +14,8 @@ describe("removeFromWatchlist", () => {
       update: vi.fn(),
       delete: deleteFn,
     };
-    await removeFromWatchlist({ id: "wl-42", repo });
+    await removeFromWatchlist({ id: "wl-42", userId: "u1", repo });
     expect(deleteFn).toHaveBeenCalledOnce();
-    expect(deleteFn).toHaveBeenCalledWith("wl-42");
+    expect(deleteFn).toHaveBeenCalledWith("wl-42", "u1");
   });
 });

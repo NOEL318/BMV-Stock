@@ -20,10 +20,23 @@ import { useDashboard } from "@/hooks/useDashboard";
  * - Card de Últimos Trades.
  */
 export function DashboardClient() {
-  const { data, isLoading } = useDashboard();
+  const { data, isLoading, error, refetch } = useDashboard();
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return <p className="text-muted-foreground text-sm">Cargando dashboard...</p>;
+  }
+
+  if (error || !data) {
+    return (
+      <Card>
+        <CardContent className="space-y-3 py-8 text-center">
+          <p className="text-destructive text-sm">No se pudo cargar el dashboard.</p>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            Reintentar
+          </Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   const { marketSnapshot, portfolio, paperPortfolio, watchlist, recentTrades } = data;

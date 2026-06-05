@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getDeps } from "@/application/di";
 import { getQuote } from "@/application/quotes/getQuote";
-import { DomainError } from "@/domain/errors/DomainError";
 import { requireUserId } from "@/infrastructure/auth/clerk";
+import { mapApiError } from "@/lib/api-errors";
 import { quoteQuerySchema } from "@/lib/schemas/quote";
 
 /**
@@ -26,21 +26,6 @@ export async function GET(req: Request) {
     const quote = await getQuote({ provider: marketData, rawTicker: parsed.data.ticker });
     return NextResponse.json(quote);
   } catch (e) {
-    if (e instanceof Error && (e as { status?: number }).status === 401) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-    if (e instanceof DomainError) {
-      const status =
-        e.code === "TICKER_NOT_FOUND"
-          ? 404
-          : e.code === "INVALID_TICKER"
-            ? 400
-            : e.code === "MARKET_DATA_UNAVAILABLE"
-              ? 503
-              : 500;
-      return NextResponse.json({ error: e.message, code: e.code }, { status });
-    }
-    console.error("/api/quotes error:", e);
-    return NextResponse.json({ error: "internal server error" }, { status: 500 });
+    return mapApiError(e, "/api/quotes");
   }
 }

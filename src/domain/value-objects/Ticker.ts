@@ -1,3 +1,5 @@
+import { InvalidTickerError } from "../errors/DomainError";
+
 /**
  * Bolsas soportadas por el sistema.
  * - BMV: Bolsa Mexicana de Valores (sufijo `.MX` en Yahoo Finance)
@@ -39,27 +41,30 @@ export class Ticker {
   static parse(raw: string): Ticker {
     const trimmed = raw.trim().toUpperCase();
     if (trimmed.length === 0) {
-      throw new Error("ticker cannot be empty");
+      throw new InvalidTickerError(raw, "ticker cannot be empty");
     }
 
     const dotCount = (trimmed.match(/\./g) ?? []).length;
     if (dotCount > 1) {
-      throw new Error(`invalid ticker format: "${raw}" has too many dots`);
+      throw new InvalidTickerError(raw, "too many dots in symbol");
     }
 
     if (dotCount === 1) {
       const [symbol, suffix] = trimmed.split(".");
       if (suffix !== "MX") {
-        throw new Error(`invalid ticker suffix: "${suffix}" (only .MX is supported)`);
+        throw new InvalidTickerError(
+          raw,
+          `unsupported suffix ".${suffix}" (only .MX is supported)`,
+        );
       }
       if (!symbol || !SYMBOL_REGEX.test(symbol)) {
-        throw new Error(`invalid ticker symbol: "${raw}"`);
+        throw new InvalidTickerError(raw, "symbol must contain only letters and digits");
       }
       return new Ticker(symbol, "BMV");
     }
 
     if (!SYMBOL_REGEX.test(trimmed)) {
-      throw new Error(`invalid ticker symbol: "${raw}"`);
+      throw new InvalidTickerError(raw, "symbol must contain only letters and digits");
     }
     return new Ticker(trimmed, "SIC");
   }

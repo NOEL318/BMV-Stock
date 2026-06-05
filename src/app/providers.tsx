@@ -8,6 +8,9 @@ import { useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider, type ResolvedTheme, type Theme } from "@/contexts/ThemeContext";
 
+// Configura los mensajes de error de Zod en español (efecto secundario).
+import "@/lib/zod-config";
+
 /**
  * Props del root `Providers`.
  * Los valores `initial*` los provee el root layout leyendo cookies en el server.

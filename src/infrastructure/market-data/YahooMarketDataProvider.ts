@@ -22,6 +22,45 @@ const BENCHMARK_TICKERS = {
   nasdaq: "^IXIC",
 } as const;
 
+/** Símbolo Yahoo del spot USD/MXN. */
+const FX_SYMBOL = "MXN=X";
+
+/** TTL del cache en memoria del tipo de cambio USD/MXN (60s). */
+const FX_TTL_MS = 60 * 1000;
+
+/** Timeout máximo para una llamada a Yahoo antes de degradar a error controlado. */
+const REQUEST_TIMEOUT_MS = 10 * 1000;
+
+/**
+ * Cache en memoria del spot USD/MXN. Evita pedir `MXN=X` en cada quote/historical
+ * de un ticker SIC (que de otro modo dispararia una llamada extra por ticker).
+ * Se comparte a nivel de proceso; en serverless cada instancia tiene la suya.
+ */
+let fxCache: { rate: number; at: number } | null = null;
+
+/**
+ * Envuelve una promesa con un timeout. Si no resuelve en `ms`, rechaza con
+ * `MarketDataUnavailableError` para que la app degrade rápido en vez de quedar
+ * colgada esperando a Yahoo.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new MarketDataUnavailableError("yahoo-finance2", `timeout (${ms}ms): ${label}`));
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
 /**
  * Mapea `TimeRange` a los parámetros que espera `yf.chart()`:
  * - `daysBack`: cuántos días hacia atrás desde hoy para `period1`.
@@ -30,7 +69,10 @@ const BENCHMARK_TICKERS = {
  * Para intradía, Yahoo limita la profundidad: 1m solo cubre los últimos
  * 7 días; 5m/15m/30m/60m hasta 60 días.
  */
-function rangeToYahooParams(range: TimeRange): { daysBack: number; interval: "1m" | "5m" | "15m" | "30m" | "60m" | "1d" } {
+function rangeToYahooParams(range: TimeRange): {
+  daysBack: number;
+  interval: "1m" | "5m" | "15m" | "30m" | "60m" | "1d";
+} {
   switch (range) {
     case "1m":
       return { daysBack: 1, interval: "1m" };
@@ -75,6 +117,25 @@ function rangeToYahooParams(range: TimeRange): { daysBack: number; interval: "1m
  */
 export class YahooMarketDataProvider implements MarketDataProvider {
   /**
+   * Obtiene el spot USD/MXN, con cache en memoria de corta duración para no
+   * pedir `MXN=X` en cada quote/historical de tickers SIC.
+   *
+   * @throws `MarketDataUnavailableError` si Yahoo no devuelve el spot.
+   */
+  private async getUsdMxnRate(): Promise<number> {
+    if (fxCache && Date.now() - fxCache.at < FX_TTL_MS) {
+      return fxCache.rate;
+    }
+    const fxQuote = await withTimeout(yf.quote(FX_SYMBOL), REQUEST_TIMEOUT_MS, FX_SYMBOL);
+    const rate = fxQuote?.regularMarketPrice;
+    if (rate === undefined || rate === null) {
+      throw new MarketDataUnavailableError("yahoo-finance2", "missing USDMXN spot");
+    }
+    fxCache = { rate, at: Date.now() };
+    return rate;
+  }
+
+  /**
    * Obtiene la cotización actual de un ticker.
    *
    * @param ticker - El ticker a consultar.
@@ -84,7 +145,11 @@ export class YahooMarketDataProvider implements MarketDataProvider {
    */
   async getQuote(ticker: Ticker): Promise<Quote> {
     try {
-      const yahooQuote = await yf.quote(ticker.yahooSymbol);
+      const yahooQuote = await withTimeout(
+        yf.quote(ticker.yahooSymbol),
+        REQUEST_TIMEOUT_MS,
+        ticker.yahooSymbol,
+      );
       if (!yahooQuote || yahooQuote.regularMarketPrice === undefined) {
         throw new TickerNotFoundError(ticker.toString());
       }
@@ -94,13 +159,8 @@ export class YahooMarketDataProvider implements MarketDataProvider {
       let fxRate = 1;
       if (ticker.exchange === "SIC") {
         priceUsd = priceNative;
-        const fxQuote = await yf.quote("MXN=X");
-        const usdMxn = fxQuote?.regularMarketPrice;
-        if (usdMxn === undefined || usdMxn === null) {
-          throw new MarketDataUnavailableError("yahoo-finance2", "missing USDMXN spot");
-        }
-        fxRate = usdMxn;
-        priceMxn = priceNative * usdMxn;
+        fxRate = await this.getUsdMxnRate();
+        priceMxn = priceNative * fxRate;
       } else {
         priceMxn = priceNative;
       }
@@ -144,16 +204,15 @@ export class YahooMarketDataProvider implements MarketDataProvider {
       const period2 = new Date();
       const period1 = new Date();
       period1.setDate(period1.getDate() - daysBack);
-      const result = await yf.chart(ticker.yahooSymbol, {
-        period1,
-        period2,
-        interval,
-      });
-      let fxRate = 1;
-      if (ticker.exchange === "SIC") {
-        const fxQuote = await yf.quote("MXN=X");
-        fxRate = fxQuote?.regularMarketPrice ?? 1;
-      }
+      const result = await withTimeout(
+        yf.chart(ticker.yahooSymbol, { period1, period2, interval }),
+        REQUEST_TIMEOUT_MS,
+        `chart ${ticker.yahooSymbol}`,
+      );
+      // Para SIC convertimos a MXN con el spot. Si el FX falla, propagamos el
+      // error en vez de caer silenciosamente a 1 (que daria precios ~17x mas
+      // bajos presentados como MXN).
+      const fxRate = ticker.exchange === "SIC" ? await this.getUsdMxnRate() : 1;
       return (result.quotes ?? [])
         .filter((q) => q.close !== null && q.close !== undefined)
         .map((q) => ({
@@ -187,10 +246,18 @@ export class YahooMarketDataProvider implements MarketDataProvider {
   async getMarketSnapshot(): Promise<MarketSnapshot> {
     try {
       const [ipcQ, usdMxnQ, sp500Q, nasdaqQ] = await Promise.all([
-        yf.quote(BENCHMARK_TICKERS.ipc),
-        yf.quote(BENCHMARK_TICKERS.usdMxn),
-        yf.quote(BENCHMARK_TICKERS.sp500),
-        yf.quote(BENCHMARK_TICKERS.nasdaq),
+        withTimeout(yf.quote(BENCHMARK_TICKERS.ipc), REQUEST_TIMEOUT_MS, BENCHMARK_TICKERS.ipc),
+        withTimeout(
+          yf.quote(BENCHMARK_TICKERS.usdMxn),
+          REQUEST_TIMEOUT_MS,
+          BENCHMARK_TICKERS.usdMxn,
+        ),
+        withTimeout(yf.quote(BENCHMARK_TICKERS.sp500), REQUEST_TIMEOUT_MS, BENCHMARK_TICKERS.sp500),
+        withTimeout(
+          yf.quote(BENCHMARK_TICKERS.nasdaq),
+          REQUEST_TIMEOUT_MS,
+          BENCHMARK_TICKERS.nasdaq,
+        ),
       ]);
       const usdMxnRate = usdMxnQ?.regularMarketPrice ?? 1;
 

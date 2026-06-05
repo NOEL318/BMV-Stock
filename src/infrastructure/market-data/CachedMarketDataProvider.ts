@@ -1,4 +1,8 @@
-import { isIntradayRange, type HistoricalPrice, type TimeRange } from "@/domain/entities/HistoricalPrice";
+import {
+  isIntradayRange,
+  type HistoricalPrice,
+  type TimeRange,
+} from "@/domain/entities/HistoricalPrice";
 import type { Quote } from "@/domain/entities/Quote";
 import type { MarketDataProvider, MarketSnapshot } from "@/domain/ports/MarketDataProvider";
 import type { QuoteCacheRepository } from "@/domain/ports/QuoteCacheRepository";
@@ -10,6 +14,15 @@ import type { Ticker } from "@/domain/value-objects/Ticker";
  * que es aceptable para uso single-user.
  */
 const QUOTE_CACHE_TTL_MS = 60 * 1000;
+
+/**
+ * TTL del cache histórico (1 día). Si el candle más reciente cacheado es más
+ * viejo que esto, se vuelve a consultar para traer los días faltantes y corregir
+ * el último (que pudo cachearse intradía). Se toleran fines de semana/feriados
+ * porque la condición es sobre la antigüedad del dato más reciente, no sobre
+ * "tiene que haber un candle de hoy".
+ */
+const HISTORICAL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Mapea `TimeRange` diario a número de días calendario hacia atrás desde hoy.
@@ -68,9 +81,12 @@ export class CachedMarketDataProvider implements MarketDataProvider {
    * @returns Cotización vigente en MXN.
    */
   async getQuote(ticker: Ticker): Promise<Quote> {
-    const cached = await this.cache.find(ticker.symbol, ticker.exchange);
-    if (cached && Date.now() - cached.asOf.getTime() < QUOTE_CACHE_TTL_MS) {
-      return cached;
+    const cached = await this.cache.findCached(ticker.symbol, ticker.exchange);
+    // La frescura se mide contra `fetchedAt` (hora de escritura en cache), NO
+    // contra `quote.asOf` (hora de mercado de Yahoo, que puede traer 15-20 min
+    // de retraso y haría que el cache nunca se considere fresco).
+    if (cached && Date.now() - cached.fetchedAt.getTime() < QUOTE_CACHE_TTL_MS) {
+      return cached.quote;
     }
     const fresh = await this.delegate.getQuote(ticker);
     await this.cache.upsert(fresh);
@@ -100,8 +116,15 @@ export class CachedMarketDataProvider implements MarketDataProvider {
       fromDate,
       new Date(),
     );
+    // Sirve el cache solo si cubre suficientes días Y su candle más reciente no
+    // es viejo. Sin el chequeo de recencia, una vez alcanzado el 60% el cache
+    // nunca se refrescaría y quedaría congelado sin los días recientes.
     if (cached.length >= rangeDays(range) * 0.6) {
-      return cached;
+      const newestMs = cached.reduce((max, c) => Math.max(max, c.date.getTime()), 0);
+      const isFresh = Date.now() - newestMs < HISTORICAL_CACHE_TTL_MS;
+      if (isFresh) {
+        return cached;
+      }
     }
     const fresh = await this.delegate.getHistorical(ticker, range);
     if (fresh.length > 0) {

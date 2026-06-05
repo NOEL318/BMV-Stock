@@ -22,7 +22,8 @@ export class DrizzleHoldingRepository implements HoldingRepository {
     const rows = await this.db
       .select()
       .from(holdings)
-      .where(and(...conditions));
+      .where(and(...conditions))
+      .orderBy(holdings.ticker);
     return rows.map((r) => this.toDomain(r));
   }
 

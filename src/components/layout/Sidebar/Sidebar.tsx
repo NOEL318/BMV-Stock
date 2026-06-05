@@ -18,9 +18,15 @@ export function Sidebar({ items, variant = "expanded", className }: SidebarProps
   return (
     <aside className={cn(sidebarVariants({ variant }), className)}>
       <div className="mb-4 px-3 py-2">
-        <span className="font-semibold tracking-tight">
-          {variant === "expanded" ? "BMV Stock" : "GC"}
-        </span>
+        {variant === "expanded" ? (
+          <span className="font-semibold tracking-tight">
+            {/* "GC" en móvil (sidebar de iconos), nombre completo en `md+`. */}
+            <span className="md:hidden">GC</span>
+            <span className="hidden md:inline">BMV Stock</span>
+          </span>
+        ) : (
+          <span className="font-semibold tracking-tight">GC</span>
+        )}
       </div>
       <nav className="flex flex-col gap-0.5">
         {items.map((item) => {
@@ -34,7 +40,8 @@ export function Sidebar({ items, variant = "expanded", className }: SidebarProps
               aria-label={item.label}
             >
               <Icon aria-hidden className="h-4 w-4 shrink-0" />
-              {variant === "expanded" && <span>{item.label}</span>}
+              {/* El label se oculta en móvil vía CSS para dejar solo el icono. */}
+              {variant === "expanded" && <span className="hidden md:inline">{item.label}</span>}
             </Link>
           );
         })}

@@ -10,6 +10,17 @@ declare global {
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
+// jsdom no implementa ResizeObserver, que sí existe en todos los navegadores
+// modernos y que usa PriceChart para reaccionar a cambios de tamaño del
+// contenedor. Lo mockeamos como no-op para que los componentes monten en tests.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  };
+}
+
 afterEach(() => {
   cleanup();
 });

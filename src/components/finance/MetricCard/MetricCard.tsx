@@ -44,6 +44,14 @@ function formatValue(
   precision: number,
 ): string {
   if (typeof value === "string") return value;
+  if (format === "currency") {
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      minimumFractionDigits: precision,
+      maximumFractionDigits: precision,
+    }).format(value);
+  }
   const formatter = new Intl.NumberFormat("es-MX", {
     minimumFractionDigits: precision,
     maximumFractionDigits: precision,

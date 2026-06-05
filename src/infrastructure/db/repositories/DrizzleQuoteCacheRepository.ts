@@ -1,8 +1,8 @@
-import { and, between, eq } from "drizzle-orm";
+import { and, between, eq, sql } from "drizzle-orm";
 
 import type { HistoricalPrice } from "@/domain/entities/HistoricalPrice";
 import type { Quote } from "@/domain/entities/Quote";
-import type { QuoteCacheRepository } from "@/domain/ports/QuoteCacheRepository";
+import type { CachedQuote, QuoteCacheRepository } from "@/domain/ports/QuoteCacheRepository";
 import type { Exchange } from "@/domain/value-objects/Ticker";
 
 import type { Database } from "../client";
@@ -15,15 +15,15 @@ import { historicalPrice, quoteCache, type DbHistoricalPrice, type DbQuoteCache 
 export class DrizzleQuoteCacheRepository implements QuoteCacheRepository {
   constructor(private readonly db: Database) {}
 
-  /** Busca el último quote cacheado. Regresa null si no existe. */
-  async find(ticker: string, exchange: Exchange): Promise<Quote | null> {
+  /** Busca el último quote cacheado con su `fetchedAt`. Regresa null si no existe. */
+  async findCached(ticker: string, exchange: Exchange): Promise<CachedQuote | null> {
     const rows = await this.db
       .select()
       .from(quoteCache)
       .where(and(eq(quoteCache.ticker, ticker), eq(quoteCache.exchange, exchange)))
       .limit(1);
     const row = rows[0];
-    return row ? this.toQuote(row) : null;
+    return row ? { quote: this.toQuote(row), fetchedAt: row.fetchedAt } : null;
   }
 
   /** Inserta o actualiza el quote en cache (key: ticker + exchange). */
@@ -80,8 +80,10 @@ export class DrizzleQuoteCacheRepository implements QuoteCacheRepository {
   }
 
   /**
-   * Inserta múltiples días de OHLCV en cache. Si una fecha ya existe,
-   * conserva el dato existente (onConflictDoNothing).
+   * Inserta o actualiza múltiples días de OHLCV en cache. Si una fecha ya
+   * existe, se sobreescribe con el dato fresco (onConflictDoUpdate). Esto
+   * corrige el último día, que pudo cachearse intradía con un OHLC incompleto
+   * y debe completarse al cierre.
    */
   async upsertHistorical(prices: HistoricalPrice[]): Promise<void> {
     if (prices.length === 0) return;
@@ -99,7 +101,17 @@ export class DrizzleQuoteCacheRepository implements QuoteCacheRepository {
           volume: p.volume,
         })),
       )
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: [historicalPrice.ticker, historicalPrice.exchange, historicalPrice.date],
+        set: {
+          open: sql`excluded.open`,
+          high: sql`excluded.high`,
+          low: sql`excluded.low`,
+          close: sql`excluded.close`,
+          volume: sql`excluded.volume`,
+          fetchedAt: new Date(),
+        },
+      });
   }
 
   /**

@@ -9,7 +9,8 @@ export const sidebarVariants = cva(
   {
     variants: {
       variant: {
-        expanded: "w-56",
+        // En móvil se muestra solo iconos (w-14); desde `md` se expande con labels.
+        expanded: "w-14 md:w-56",
         compact: "w-14",
       },
     },
@@ -30,7 +31,8 @@ export const sidebarItemVariants = cva(
         false: "text-muted-foreground",
       },
       variant: {
-        expanded: "justify-start",
+        // Centrado (solo icono) en móvil; alineado a la izquierda con label en `md+`.
+        expanded: "justify-center md:justify-start",
         compact: "justify-center",
       },
     },

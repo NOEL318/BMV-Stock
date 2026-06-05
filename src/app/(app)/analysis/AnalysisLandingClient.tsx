@@ -31,11 +31,12 @@ export function AnalysisLandingClient() {
 
   return (
     <div className="space-y-6">
-      <Card className="bg-gradient-to-br from-primary/5 via-card to-card border-primary/20">
+      <Card className="from-primary/5 via-card to-card border-primary/20 bg-gradient-to-br">
         <CardContent className="pt-5 pb-5">
           <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row">
             <Input
               type="text"
+              aria-label="Ticker a analizar"
               placeholder="Busca por ticker — ej. WALMEX.MX, AAPL, SPY"
               value={ticker}
               onChange={(e) => setTicker(e.target.value)}

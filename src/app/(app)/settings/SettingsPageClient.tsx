@@ -20,7 +20,7 @@ import type { UpdateUserPreferencesInput } from "@/lib/schemas/userPreferences";
  * mientras no haya cambios (isDirty es false).
  */
 export function SettingsPageClient() {
-  const { data, isLoading } = useUserPreferences();
+  const { data, isLoading, error, refetch } = useUserPreferences();
   const { setTheme } = useTheme();
   const queryClient = useQueryClient();
   const form = useForm<UpdateUserPreferencesInput>({
@@ -57,8 +57,21 @@ export function SettingsPageClient() {
     toast.success("Ajustes guardados");
   }
 
-  if (isLoading || !data) {
+  if (isLoading) {
     return <p className="text-muted-foreground text-sm">Cargando...</p>;
+  }
+
+  if (error || !data) {
+    return (
+      <Card>
+        <CardContent className="space-y-3 py-8 text-center">
+          <p className="text-destructive text-sm">No se pudieron cargar tus preferencias.</p>
+          <Button variant="outline" size="sm" onClick={() => void refetch()}>
+            Reintentar
+          </Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

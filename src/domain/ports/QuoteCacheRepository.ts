@@ -3,12 +3,27 @@ import type { Quote } from "../entities/Quote";
 import type { Exchange } from "../value-objects/Ticker";
 
 /**
+ * Quote cacheado junto con su metadata de cache.
+ */
+export interface CachedQuote {
+  quote: Quote;
+  /**
+   * Hora real en que se escribió el quote en cache. Es la referencia correcta
+   * para calcular frescura/TTL (a diferencia de `quote.asOf`, que es la hora de
+   * mercado según Yahoo y puede traer 15-20 min de retraso).
+   */
+  fetchedAt: Date;
+}
+
+/**
  * Persistencia del cache de cotizaciones (quote_cache + historical_price).
- * El TTL lógico de 10 min lo enforza el CachedMarketDataProvider, no este repo.
+ * El TTL lógico lo enforza el CachedMarketDataProvider, no este repo.
  */
 export interface QuoteCacheRepository {
-  /** Busca el último quote cacheado. Regresa null si no existe. */
-  find(ticker: string, exchange: Exchange): Promise<Quote | null>;
+  /**
+   * Busca el último quote cacheado con su `fetchedAt`. Regresa null si no existe.
+   */
+  findCached(ticker: string, exchange: Exchange): Promise<CachedQuote | null>;
   /** Inserta o actualiza el quote en cache (key: ticker + exchange). */
   upsert(quote: Quote): Promise<void>;
   /** Lista los precios históricos cacheados en un rango de fechas. */

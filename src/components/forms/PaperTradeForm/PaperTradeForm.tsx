@@ -147,7 +147,13 @@ export function PaperTradeForm({
                   <Input
                     type="number"
                     step="0.0001"
+                    placeholder="0"
                     {...field}
+                    value={
+                      Number.isFinite(field.value) && field.value !== 0
+                        ? (field.value as number)
+                        : ""
+                    }
                     onChange={(e) => field.onChange(e.target.valueAsNumber)}
                   />
                 </FormControl>

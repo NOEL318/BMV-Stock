@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getDeps } from "@/application/di";
 import { executePaperTrade } from "@/application/paper-trading/executePaperTrade";
-import { DomainError } from "@/domain/errors/DomainError";
 import { requireUserId } from "@/infrastructure/auth/clerk";
+import { mapApiError, parseJsonBody } from "@/lib/api-errors";
 import { executePaperTradeSchema } from "@/lib/schemas/paperTrade";
 
 /**
@@ -15,7 +15,7 @@ import { executePaperTradeSchema } from "@/lib/schemas/paperTrade";
 export async function POST(req: Request) {
   try {
     const userId = await requireUserId();
-    const body = await req.json();
+    const body = await parseJsonBody(req);
     const parsed = executePaperTradeSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -33,16 +33,7 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(result, { status: 201 });
   } catch (e) {
-    if (e instanceof Error && (e as { status?: number }).status === 401) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-    if (e instanceof DomainError) {
-      const status =
-        e.code === "INSUFFICIENT_FUNDS" || e.code === "INSUFFICIENT_QUANTITY" ? 422 : 400;
-      return NextResponse.json({ error: e.message, code: e.code }, { status });
-    }
-    console.error("/api/paper-trading/trades error:", e);
-    return NextResponse.json({ error: "internal server error" }, { status: 500 });
+    return mapApiError(e, "/api/paper-trading/trades");
   }
 }
 
@@ -62,10 +53,6 @@ export async function GET() {
     const list = await paperTrade.listByPortfolio(portfolio.id);
     return NextResponse.json({ trades: list });
   } catch (e) {
-    if (e instanceof Error && (e as { status?: number }).status === 401) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-    console.error("/api/paper-trading/trades GET error:", e);
-    return NextResponse.json({ error: "internal server error" }, { status: 500 });
+    return mapApiError(e, "/api/paper-trading/trades GET");
   }
 }

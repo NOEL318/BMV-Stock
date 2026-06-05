@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getDashboardData } from "@/application/dashboard/getDashboardData";
 import { getDeps } from "@/application/di";
 import { requireUserId } from "@/infrastructure/auth/clerk";
+import { mapApiError } from "@/lib/api-errors";
 
 /**
  * GET /api/dashboard
@@ -25,10 +26,6 @@ export async function GET() {
     });
     return NextResponse.json(data);
   } catch (e) {
-    if (e instanceof Error && (e as { status?: number }).status === 401) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-    console.error("/api/dashboard GET error:", e);
-    return NextResponse.json({ error: "internal server error" }, { status: 500 });
+    return mapApiError(e, "/api/dashboard GET");
   }
 }

@@ -72,11 +72,34 @@ export function DataTable<T>({
             <tr key={hg.id}>
               {hg.headers.map((header) => {
                 const sortDir = header.column.getIsSorted();
+                const canSort = sortable && header.column.getCanSort();
+                const toggleSort = header.column.getToggleSortingHandler();
                 return (
                   <th
                     key={header.id}
                     className={tableHeaderVariants({ density, sortable })}
-                    onClick={sortable ? header.column.getToggleSortingHandler() : undefined}
+                    onClick={canSort ? toggleSort : undefined}
+                    onKeyDown={
+                      canSort
+                        ? (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              toggleSort?.(e);
+                            }
+                          }
+                        : undefined
+                    }
+                    tabIndex={canSort ? 0 : undefined}
+                    role={canSort ? "button" : undefined}
+                    aria-sort={
+                      sortDir === "asc"
+                        ? "ascending"
+                        : sortDir === "desc"
+                          ? "descending"
+                          : canSort
+                            ? "none"
+                            : undefined
+                    }
                   >
                     <span className="inline-flex items-center gap-1">
                       {flexRender(header.column.columnDef.header, header.getContext())}

@@ -148,8 +148,13 @@ export function TradeForm({
                   <Input
                     type="number"
                     step="0.0001"
+                    placeholder="0"
                     {...field}
-                    value={field.value as number}
+                    value={
+                      Number.isFinite(field.value) && field.value !== 0
+                        ? (field.value as number)
+                        : ""
+                    }
                     onChange={(e) => field.onChange(e.target.valueAsNumber)}
                   />
                 </FormControl>
@@ -167,8 +172,13 @@ export function TradeForm({
                   <Input
                     type="number"
                     step="0.01"
+                    placeholder="0.00"
                     {...field}
-                    value={field.value as number}
+                    value={
+                      Number.isFinite(field.value) && field.value !== 0
+                        ? (field.value as number)
+                        : ""
+                    }
                     onChange={(e) => field.onChange(e.target.valueAsNumber)}
                   />
                 </FormControl>
@@ -205,8 +215,11 @@ export function TradeForm({
               <FormControl>
                 <Input
                   type="date"
+                  max={new Date().toISOString().slice(0, 10)}
                   value={field.value instanceof Date ? field.value.toISOString().slice(0, 10) : ""}
-                  onChange={(e) => field.onChange(new Date(e.target.value))}
+                  onChange={(e) =>
+                    field.onChange(e.target.value ? new Date(e.target.value) : undefined)
+                  }
                 />
               </FormControl>
               <FormMessage />

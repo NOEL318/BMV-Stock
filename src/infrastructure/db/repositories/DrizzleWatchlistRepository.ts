@@ -13,12 +13,13 @@ import { watchlistItems, type DbWatchlistItem } from "../schema";
 export class DrizzleWatchlistRepository implements WatchlistRepository {
   constructor(private readonly db: Database) {}
 
-  /** Lista todos los items del watchlist del usuario. */
+  /** Lista todos los items del watchlist del usuario, ordenados por fecha de alta. */
   async listByUser(userId: string): Promise<WatchlistItem[]> {
     const rows = await this.db
       .select()
       .from(watchlistItems)
-      .where(eq(watchlistItems.userId, userId));
+      .where(eq(watchlistItems.userId, userId))
+      .orderBy(watchlistItems.addedAt);
     return rows.map((r) => this.toDomain(r));
   }
 
@@ -78,9 +79,11 @@ export class DrizzleWatchlistRepository implements WatchlistRepository {
     return this.toDomain(row);
   }
 
-  /** Elimina un item del watchlist por id. */
-  async delete(id: string): Promise<void> {
-    await this.db.delete(watchlistItems).where(eq(watchlistItems.id, id));
+  /** Elimina un item del watchlist por id, acotado al usuario dueño. */
+  async delete(id: string, userId: string): Promise<void> {
+    await this.db
+      .delete(watchlistItems)
+      .where(and(eq(watchlistItems.id, id), eq(watchlistItems.userId, userId)));
   }
 
   /**

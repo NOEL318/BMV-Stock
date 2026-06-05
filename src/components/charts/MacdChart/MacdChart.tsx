@@ -25,12 +25,15 @@ export interface MacdChartProps {
 export function MacdChart({ data, width = 800, height = 120, className }: MacdChartProps) {
   const { macd, signal, histogram } = data;
 
-  const allValues = [...macd, ...signal, ...histogram].filter(
-    (v): v is number => v !== null,
-  );
+  const allValues = [...macd, ...signal, ...histogram].filter((v): v is number => v !== null);
   if (allValues.length === 0) {
     return (
-      <div className={cn("text-muted-foreground flex h-30 items-center justify-center text-xs", className)}>
+      <div
+        className={cn(
+          "text-muted-foreground flex h-30 items-center justify-center text-xs",
+          className,
+        )}
+      >
         Sin datos suficientes para MACD
       </div>
     );
@@ -101,7 +104,7 @@ export function MacdChart({ data, width = 800, height = 120, className }: MacdCh
         {/* Línea de señal */}
         <path d={signalPath} fill="none" stroke="#F59E0B" strokeWidth={1} />
       </svg>
-      <div className="text-muted-foreground absolute right-2 top-1 flex gap-3 text-[10px]">
+      <div className="text-muted-foreground absolute top-1 right-2 flex gap-3 text-[10px]">
         <span className="inline-flex items-center gap-1">
           <span className="bg-primary inline-block h-1 w-3" /> MACD
         </span>

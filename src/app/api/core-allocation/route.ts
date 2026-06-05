@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { recommendAllocation } from "@/application/core-allocation/recommendAllocation";
 import { requireUserId } from "@/infrastructure/auth/clerk";
+import { mapApiError, parseJsonBody } from "@/lib/api-errors";
 
 /** Schema de validación para el body del endpoint. */
 const bodySchema = z.object({
@@ -18,7 +19,7 @@ const bodySchema = z.object({
 export async function POST(req: Request) {
   try {
     await requireUserId();
-    const body: unknown = await req.json();
+    const body = await parseJsonBody(req);
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -29,10 +30,6 @@ export async function POST(req: Request) {
     const allocation = recommendAllocation(parsed.data.riskProfile);
     return NextResponse.json({ allocation });
   } catch (e) {
-    if (e instanceof Error && (e as { status?: number }).status === 401) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-    console.error("/api/core-allocation error:", e);
-    return NextResponse.json({ error: "internal server error" }, { status: 500 });
+    return mapApiError(e, "/api/core-allocation");
   }
 }

@@ -4,6 +4,7 @@ import { getDeps } from "@/application/di";
 import { getOrCreateUserPreferences } from "@/application/user-preferences/getOrCreateUserPreferences";
 import { updateUserPreferences } from "@/application/user-preferences/updateUserPreferences";
 import { requireUserId } from "@/infrastructure/auth/clerk";
+import { mapApiError, parseJsonBody } from "@/lib/api-errors";
 import { updateUserPreferencesSchema } from "@/lib/schemas/userPreferences";
 
 /**
@@ -19,11 +20,7 @@ export async function GET() {
     const prefs = await getOrCreateUserPreferences({ userId, repo: userPreferences });
     return NextResponse.json({ preferences: prefs });
   } catch (e) {
-    if (e instanceof Error && (e as { status?: number }).status === 401) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-    console.error("/api/user-preferences GET error:", e);
-    return NextResponse.json({ error: "internal server error" }, { status: 500 });
+    return mapApiError(e, "/api/user-preferences GET");
   }
 }
 
@@ -36,7 +33,7 @@ export async function GET() {
 export async function PUT(req: Request) {
   try {
     const userId = await requireUserId();
-    const body: unknown = await req.json();
+    const body = await parseJsonBody(req);
     const parsed = updateUserPreferencesSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -52,10 +49,6 @@ export async function PUT(req: Request) {
     });
     return NextResponse.json({ preferences: prefs });
   } catch (e) {
-    if (e instanceof Error && (e as { status?: number }).status === 401) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-    console.error("/api/user-preferences PUT error:", e);
-    return NextResponse.json({ error: "internal server error" }, { status: 500 });
+    return mapApiError(e, "/api/user-preferences PUT");
   }
 }

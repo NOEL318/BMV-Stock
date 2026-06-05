@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getDeps } from "@/application/di";
 import { getSuggestedTickersData } from "@/application/suggestions/getSuggestedTickersData";
 import { requireUserId } from "@/infrastructure/auth/clerk";
+import { mapApiError } from "@/lib/api-errors";
 
 /**
  * GET /api/suggested-tickers
@@ -18,10 +19,6 @@ export async function GET() {
     const entries = await getSuggestedTickersData({ marketData });
     return NextResponse.json({ entries });
   } catch (e) {
-    if (e instanceof Error && (e as { status?: number }).status === 401) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-    console.error("/api/suggested-tickers error:", e);
-    return NextResponse.json({ error: "internal server error" }, { status: 500 });
+    return mapApiError(e, "/api/suggested-tickers");
   }
 }

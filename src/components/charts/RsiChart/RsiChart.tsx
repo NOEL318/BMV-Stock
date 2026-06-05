@@ -27,7 +27,12 @@ export function RsiChart({ values, width = 800, height = 100, className }: RsiCh
 
   if (valid.length === 0) {
     return (
-      <div className={cn("text-muted-foreground flex h-24 items-center justify-center text-xs", className)}>
+      <div
+        className={cn(
+          "text-muted-foreground flex h-24 items-center justify-center text-xs",
+          className,
+        )}
+      >
         Sin datos suficientes para RSI
       </div>
     );
@@ -87,7 +92,7 @@ export function RsiChart({ values, width = 800, height = 100, className }: RsiCh
         {/* Curva RSI */}
         <path d={linePath} fill="none" stroke={lineColor} strokeWidth={1.5} />
       </svg>
-      <div className="text-muted-foreground absolute right-2 top-1 text-[10px]">
+      <div className="text-muted-foreground absolute top-1 right-2 text-[10px]">
         70 sobrecomprado · 30 sobrevendido
       </div>
     </div>

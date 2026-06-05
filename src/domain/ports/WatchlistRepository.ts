@@ -13,5 +13,10 @@ export interface WatchlistRepository {
   ): Promise<WatchlistItem | null>;
   create(input: Omit<WatchlistItem, "id" | "addedAt">): Promise<WatchlistItem>;
   update(item: WatchlistItem): Promise<WatchlistItem>;
-  delete(id: string): Promise<void>;
+  /**
+   * Elimina un item por id, acotado al `userId` dueño. El scoping por usuario
+   * evita borrados cross-user (IDOR): un id que pertenezca a otro usuario no
+   * se borra. Idempotente: si no existe el par (id, userId) no hace nada.
+   */
+  delete(id: string, userId: string): Promise<void>;
 }

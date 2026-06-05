@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getDeps } from "@/application/di";
 import { getPaperPortfolio } from "@/application/paper-trading/getPaperPortfolio";
-import { DomainError } from "@/domain/errors/DomainError";
 import { requireUserId } from "@/infrastructure/auth/clerk";
+import { mapApiError } from "@/lib/api-errors";
 
 /**
  * GET /api/paper-trading
@@ -27,13 +27,6 @@ export async function GET() {
     }
     return NextResponse.json(state);
   } catch (e) {
-    if (e instanceof Error && (e as { status?: number }).status === 401) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-    if (e instanceof DomainError) {
-      return NextResponse.json({ error: e.message, code: e.code }, { status: 400 });
-    }
-    console.error("/api/paper-trading error:", e);
-    return NextResponse.json({ error: "internal server error" }, { status: 500 });
+    return mapApiError(e, "/api/paper-trading");
   }
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { PaperTradeForm } from "@/components/forms/PaperTradeForm";
+import { invalidateAfterPaperTrade } from "@/hooks/invalidate";
 import type { ExecutePaperTradeInput } from "@/lib/schemas/paperTrade";
 
 /**
@@ -30,8 +31,7 @@ export function PaperTradePageClient() {
       toast.error(message);
       return;
     }
-    await queryClient.invalidateQueries({ queryKey: ["paper-portfolio"] });
-    await queryClient.invalidateQueries({ queryKey: ["paper-trades"] });
+    await invalidateAfterPaperTrade(queryClient);
     toast.success("Paper trade ejecutado");
     router.push("/paper-trading");
   }

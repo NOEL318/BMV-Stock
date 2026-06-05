@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { TradeForm } from "@/components/forms/TradeForm";
+import { invalidateAfterRealTrade } from "@/hooks/invalidate";
 import type { RecordTradeInput } from "@/lib/schemas/trade";
 
 /**
@@ -30,7 +31,7 @@ export function TradePageClient() {
       toast.error(message);
       return;
     }
-    await queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+    await invalidateAfterRealTrade(queryClient);
     toast.success("Trade registrado correctamente");
     router.push("/portfolio");
   }

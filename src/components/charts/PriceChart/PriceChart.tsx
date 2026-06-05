@@ -12,7 +12,7 @@ import {
 } from "lightweight-charts";
 import { useEffect, useRef } from "react";
 
-import { computeSMA } from "@/application/analysis/computeIndicators";
+import { computeEMA, computeSMA } from "@/application/analysis/computeIndicators";
 import { cn } from "@/lib/utils";
 
 import type { PriceChartProps } from "./PriceChart.types";
@@ -121,16 +121,18 @@ export function PriceChart({
     // Dibujar indicadores como overlays sobre la gráfica principal
     const closes = data.map((d) => d.close);
     for (const ind of indicators) {
-      const config: Record<string, { period: number; color: string }> = {
-        sma20: { period: 20, color: "#3B82F6" },
-        sma50: { period: 50, color: "#F59E0B" },
-        sma200: { period: 200, color: "#8B5CF6" },
-        ema12: { period: 12, color: "#22D3EE" },
-        ema26: { period: 26, color: "#F472B6" },
+      const config: Record<string, { period: number; color: string; kind: "sma" | "ema" }> = {
+        sma20: { period: 20, color: "#3B82F6", kind: "sma" },
+        sma50: { period: 50, color: "#F59E0B", kind: "sma" },
+        sma200: { period: 200, color: "#8B5CF6", kind: "sma" },
+        ema12: { period: 12, color: "#22D3EE", kind: "ema" },
+        ema26: { period: 26, color: "#F472B6", kind: "ema" },
       };
       const c = config[ind];
       if (!c) continue;
-      const values = computeSMA(closes, c.period);
+      // Usa EMA para los indicadores ema*, SMA para los sma*. Antes siempre se
+      // calculaba SMA, por lo que ema12/ema26 dibujaban una media simple.
+      const values = c.kind === "ema" ? computeEMA(closes, c.period) : computeSMA(closes, c.period);
       const series = chart.addSeries(LineSeries, { color: c.color, lineWidth: 1 });
       series.setData(
         values
@@ -152,15 +154,38 @@ export function PriceChart({
 
     chart.timeScale().fitContent();
 
-    // Redimensionar el chart cuando cambia el tamaño del contenedor
-    const handleResize = (): void => {
+    // Redimensionar el chart cuando cambia el tamaño del CONTENEDOR (no solo la
+    // ventana): cubre cambios de layout como abrir/cerrar el sidebar de glosario.
+    const resizeObserver = new ResizeObserver(() => {
       if (containerRef.current && chartRef.current) {
         chartRef.current.applyOptions({ width: containerRef.current.clientWidth });
       }
-    };
-    window.addEventListener("resize", handleResize);
+    });
+    resizeObserver.observe(containerRef.current);
+
+    // En modo "auto", re-aplicar los colores de layout cuando cambia la clase
+    // `.dark` del documento (toggle de tema), sin recrear toda la gráfica.
+    let themeObserver: MutationObserver | null = null;
+    if (theme === "auto") {
+      themeObserver = new MutationObserver(() => {
+        const dark = document.documentElement.classList.contains("dark");
+        const line = dark ? "#27272a" : "#e4e4e7";
+        chart.applyOptions({
+          layout: { textColor: dark ? "#a1a1aa" : "#71717a" },
+          grid: { vertLines: { color: line }, horzLines: { color: line } },
+          timeScale: { borderColor: line },
+          rightPriceScale: { borderColor: line },
+        });
+      });
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
+    }
+
     return () => {
-      window.removeEventListener("resize", handleResize);
+      resizeObserver.disconnect();
+      themeObserver?.disconnect();
       chart.remove();
       chartRef.current = null;
     };

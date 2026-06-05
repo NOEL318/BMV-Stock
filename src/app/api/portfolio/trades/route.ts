@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getDeps } from "@/application/di";
 import { recordRealTrade } from "@/application/portfolio/recordRealTrade";
-import { DomainError } from "@/domain/errors/DomainError";
 import { requireUserId } from "@/infrastructure/auth/clerk";
+import { mapApiError, parseJsonBody } from "@/lib/api-errors";
 import { recordTradeSchema } from "@/lib/schemas/trade";
 
 /**
@@ -14,7 +14,7 @@ import { recordTradeSchema } from "@/lib/schemas/trade";
 export async function POST(req: Request) {
   try {
     const userId = await requireUserId();
-    const body = await req.json();
+    const body = await parseJsonBody(req);
     const parsed = recordTradeSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -30,15 +30,7 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(result, { status: 201 });
   } catch (e) {
-    if (e instanceof Error && (e as { status?: number }).status === 401) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-    if (e instanceof DomainError) {
-      const status = e.code === "INSUFFICIENT_QUANTITY" ? 422 : 400;
-      return NextResponse.json({ error: e.message, code: e.code }, { status });
-    }
-    console.error("/api/portfolio/trades error:", e);
-    return NextResponse.json({ error: "internal server error" }, { status: 500 });
+    return mapApiError(e, "/api/portfolio/trades");
   }
 }
 
@@ -54,10 +46,6 @@ export async function GET() {
     const list = await trades.listByUser(userId);
     return NextResponse.json({ trades: list });
   } catch (e) {
-    if (e instanceof Error && (e as { status?: number }).status === 401) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
-    console.error("/api/portfolio/trades GET error:", e);
-    return NextResponse.json({ error: "internal server error" }, { status: 500 });
+    return mapApiError(e, "/api/portfolio/trades GET");
   }
 }

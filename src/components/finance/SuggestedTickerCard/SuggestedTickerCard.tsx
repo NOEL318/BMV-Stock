@@ -11,6 +11,7 @@ import { ExchangeBadge } from "@/components/finance/ExchangeBadge";
 import { MoneyDisplay } from "@/components/finance/MoneyDisplay";
 import { PnLBadge } from "@/components/finance/PnLBadge";
 import { TickerBadge } from "@/components/finance/TickerBadge";
+import { invalidateAfterWatchlistChange } from "@/hooks/invalidate";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { cn } from "@/lib/utils";
 
@@ -85,7 +86,7 @@ export function SuggestedTickerCard({
         }
         toast.success(`${ticker} agregado al watchlist`);
       }
-      await queryClient.invalidateQueries({ queryKey: ["watchlist"] });
+      await invalidateAfterWatchlistChange(queryClient);
     } finally {
       setPending(false);
     }
@@ -101,9 +102,7 @@ export function SuggestedTickerCard({
       aria-pressed={inWatchlist}
       className={cn(
         "hover:bg-muted z-10 inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-        inWatchlist
-          ? "text-yellow-500"
-          : "text-muted-foreground hover:text-foreground",
+        inWatchlist ? "text-yellow-500" : "text-muted-foreground hover:text-foreground",
       )}
     >
       <LuStar className={cn("h-4 w-4", inWatchlist && "fill-yellow-500")} />
@@ -112,96 +111,102 @@ export function SuggestedTickerCard({
 
   if (layout === "horizontal") {
     return (
-      <Link
-        href={href}
-        aria-label={`Ver análisis de ${ticker}`}
+      <div
         className={cn(
-          "group bg-card hover:border-primary/40 hover:shadow-sm border-border relative flex shrink-0 items-center gap-3 overflow-hidden rounded-lg border p-3 transition-all",
+          "group bg-card hover:border-primary/40 border-border relative flex shrink-0 items-center gap-3 overflow-hidden rounded-lg border p-3 transition-all hover:shadow-sm",
           className,
         )}
       >
-        {/* Bloque ticker */}
-        <div className="flex flex-col gap-1">
-          <TickerBadge ticker={ticker} exchange={exchange} size="sm" />
-          <ExchangeBadge exchange={exchange} size="sm" />
-        </div>
+        {/* El Link cubre el contenido; el botón va como hermano (no anidado en
+            el anchor) para no producir HTML inválido (interactivo en interactivo). */}
+        <Link
+          href={href}
+          aria-label={`Ver análisis de ${ticker}`}
+          className="flex flex-1 items-center gap-3"
+        >
+          {/* Bloque ticker */}
+          <div className="flex flex-col gap-1">
+            <TickerBadge ticker={ticker} exchange={exchange} size="sm" />
+            <ExchangeBadge exchange={exchange} size="sm" />
+          </div>
 
-        {/* Bloque precio + delta */}
-        <div className="flex min-w-[5rem] flex-col items-end">
-          {quote ? (
-            <MoneyDisplay amount={quote.priceMxn} size="md" showCurrency={false} />
-          ) : (
-            <span className="text-muted-foreground text-xs">Sin datos</span>
-          )}
-          {monthChangePct !== null && (
-            <PnLBadge percent={monthChangePct} percentFormat="decimal" size="sm" />
-          )}
-        </div>
+          {/* Bloque precio + delta */}
+          <div className="flex min-w-[5rem] flex-col items-end">
+            {quote ? (
+              <MoneyDisplay amount={quote.priceMxn} size="md" showCurrency={false} />
+            ) : (
+              <span className="text-muted-foreground text-xs">Sin datos</span>
+            )}
+            {monthChangePct !== null && (
+              <PnLBadge percent={monthChangePct} percentFormat="decimal" size="sm" />
+            )}
+          </div>
 
-        {/* Bloque sparkline */}
-        <div className="min-w-[100px] flex-1">
-          {recentCloses.length > 1 ? (
-            <SparkLine data={recentCloses} width={140} height={36} className="w-full" />
-          ) : (
-            <span className="text-muted-foreground text-[10px]">Sin histórico</span>
-          )}
-        </div>
+          {/* Bloque sparkline */}
+          <div className="min-w-[100px] flex-1">
+            {recentCloses.length > 1 ? (
+              <SparkLine data={recentCloses} width={140} height={36} className="w-full" />
+            ) : (
+              <span className="text-muted-foreground text-[10px]">Sin histórico</span>
+            )}
+          </div>
+        </Link>
 
         {/* Botón watchlist en la esquina */}
         <div className="shrink-0">{watchlistButton}</div>
-      </Link>
+      </div>
     );
   }
 
   // Vertical (default) ----------------------------------------------------
   return (
-    <Link
-      href={href}
-      aria-label={`Ver análisis de ${ticker}`}
+    <div
       className={cn(
-        "group bg-card hover:border-primary/40 hover:shadow-sm border-border relative block overflow-hidden rounded-lg border transition-all",
+        "group bg-card hover:border-primary/40 border-border relative block overflow-hidden rounded-lg border transition-all hover:shadow-sm",
         className,
       )}
     >
-      {/* Botón watchlist en esquina superior derecha */}
-      <div className="absolute right-1 top-1 z-10">{watchlistButton}</div>
+      {/* Botón watchlist como hermano del Link (no anidado en el anchor). */}
+      <div className="absolute top-1 right-1 z-10">{watchlistButton}</div>
 
-      <div className="p-3">
-        <div className="mb-2 flex items-start justify-between gap-2 pr-7">
-          <div className="flex flex-col gap-1">
-            <TickerBadge ticker={ticker} exchange={exchange} size="sm" />
-            <ExchangeBadge exchange={exchange} size="sm" />
-          </div>
-          {monthChangePct !== null && (
-            <PnLBadge percent={monthChangePct} percentFormat="decimal" size="sm" />
-          )}
-        </div>
-
-        <div className="mb-2">
-          {quote ? (
-            <MoneyDisplay amount={quote.priceMxn} size="md" showCurrency={false} />
-          ) : (
-            <span className="text-muted-foreground text-xs">Sin datos</span>
-          )}
-          <div className="text-muted-foreground mt-0.5 text-[10px] uppercase tracking-wider">
-            MXN · {exchange}
-          </div>
-        </div>
-
-        {recentCloses.length > 1 ? (
-          <div className="border-border/60 -mx-3 -mb-3 border-t px-3 py-2">
-            <div className="text-muted-foreground mb-0.5 flex items-baseline justify-between text-[9px] uppercase tracking-wider">
-              <span>30 días</span>
-              <span className={isPositive ? "text-success" : "text-destructive"}>
-                {isPositive ? "▲" : "▼"}
-              </span>
+      <Link href={href} aria-label={`Ver análisis de ${ticker}`} className="block">
+        <div className="p-3">
+          <div className="mb-2 flex items-start justify-between gap-2 pr-7">
+            <div className="flex flex-col gap-1">
+              <TickerBadge ticker={ticker} exchange={exchange} size="sm" />
+              <ExchangeBadge exchange={exchange} size="sm" />
             </div>
-            <SparkLine data={recentCloses} width={200} height={32} className="w-full" />
+            {monthChangePct !== null && (
+              <PnLBadge percent={monthChangePct} percentFormat="decimal" size="sm" />
+            )}
           </div>
-        ) : (
-          <div className="text-muted-foreground text-[10px]">Sin histórico</div>
-        )}
-      </div>
-    </Link>
+
+          <div className="mb-2">
+            {quote ? (
+              <MoneyDisplay amount={quote.priceMxn} size="md" showCurrency={false} />
+            ) : (
+              <span className="text-muted-foreground text-xs">Sin datos</span>
+            )}
+            <div className="text-muted-foreground mt-0.5 text-[10px] tracking-wider uppercase">
+              MXN · {exchange}
+            </div>
+          </div>
+
+          {recentCloses.length > 1 ? (
+            <div className="border-border/60 -mx-3 -mb-3 border-t px-3 py-2">
+              <div className="text-muted-foreground mb-0.5 flex items-baseline justify-between text-[9px] tracking-wider uppercase">
+                <span>30 días</span>
+                <span className={isPositive ? "text-success" : "text-destructive"}>
+                  {isPositive ? "▲" : "▼"}
+                </span>
+              </div>
+              <SparkLine data={recentCloses} width={200} height={32} className="w-full" />
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-[10px]">Sin histórico</div>
+          )}
+        </div>
+      </Link>
+    </div>
   );
 }
